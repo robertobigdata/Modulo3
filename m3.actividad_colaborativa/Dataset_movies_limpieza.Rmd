@@ -1,0 +1,109 @@
+---
+title: "Dataset_movies_limpieza"
+author: "Roberto Navarro"
+date: "14 de noviembre de 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Preparamos el entorno para que sea reproducible
+
+Antes que nada, limpiamos el directorio de trabajo para no acumular demasiados objetos.
+
+```{r echo=TRUE}
+rm(list=ls())
+```
+
+La carpeta sobre la que trabajamos estará creada sobre el directorio de trabajo que tenga asignado el usuario, pues de lo contrario nos dirá que no existe ese directorio.
+```{r directorio, echo=TRUE, message=FALSE, warning=FALSE, error=FALSE}
+if(!file.exists("./datos")){
+  dir.create("./datos")
+}
+```
+
+Usaremos diversas librerías, las cuales a priori no sabemos si el usuario las tiene instaladas, luego comprobamos y en caso necesario las instalamos.
+```{r librerías, message=FALSE, warning=FALSE, error=FALSE}
+if(!require(knitr)){
+  install.packages("knitr", dependencies = TRUE)
+}
+```
+
+## Descargamos y cargamos en RStudio el dataset.
+
+Para descargarlo:
+
+```{r descarga,results=FALSE}
+fileurl <-"https://raw.githubusercontent.com/sundeepblue/movie_rating_prediction/master/movie_metadata.csv"
+download.file(fileurl,destfile = "./datos/movies_dataset.csv")
+fechadescarga=date()
+fechadescarga
+```
+
+Lo cargamos en Rstudio
+
+```{r carga, results=FALSE}
+movies<-read.csv2("./datos/movies_dataset.csv", header=TRUE, sep=",")
+```
+
+##Limpieza de los datos
+###Cambiar caracteres raros
+
+```{r}
+View(movies)
+```
+Como vemos, hay varios valores con el caracter 'Â'. Lo borramos
+```{r, results=FALSE}
+movies<-lapply(movies,gsub,pattern="Â",replacement="",fixed=TRUE)
+```
+Igualmente, cambiamos los caracteres '|' por ','
+```{r}
+movies<-lapply(movies,gsub,pattern="|",replacement=", ",fixed=TRUE)
+```
+devolvemos a movies el formato de data.frame, pues con el lapply se nos ha hecho lista
+```{r}
+movies<-as.data.frame(movies)
+```
+
+###Revisar clase de las variables
+
+```{r warning=FALSE}
+kable(sapply(movies,class))
+```
+
+Cambiamos las que no corresponden
+```{r}
+#Primero, las numéricas
+movies[,c(3,4,5,6,8,9,13,14,16,19,23,25,26,27,28)]<-lapply(movies[,c(3,4,5,6,8,9,13,14,16,19,23,25,26,27,28)],as.numeric)
+#Ahora, los caracteres
+movies[,c("director_name","actor_2_name","actor_1_name","movie_title","actor_3_name","plot_keywords","genres","movie_imdb_link")]<-lapply(movies[,c("director_name","actor_2_name","actor_1_name","movie_title","actor_3_name","plot_keywords","genres","movie_imdb_link")],as.character)
+#El resto los dejaremos como categóricas tipo factor.
+kable(sapply(movies,class))
+```
+
+
+Como en nuestro caso no nos importa tener algún campo en blanco, cambiamos los NA por valores en blanco
+```{r NA}
+#En las variables tipo factor sin el valor "" dentro de sus levels, no deja cambiar el NA, por "".
+#Por tanto, incluimos "" en levels:
+levels(movies$title_year)<-c(levels(movies$title_year),"")
+movies[is.na(movies)]<-""
+```
+
+Ordenamos columnas y eliminamos las que no queramos
+```{r orden columnas}
+moviesfinal<-movies[,c("movie_title","title_year","director_name","duration","country","language","genres","imdb_score","num_voted_users","num_critic_for_reviews","color","actor_1_name","actor_2_name","actor_3_name","movie_imdb_link","plot_keywords")]
+kable(head(moviesfinal[,1:8]))
+```
+
+Por último ordenamos filas en función del título de la película
+```{r orden filas título}
+moviesfinal<-moviesfinal[order(moviesfinal$movie_title),]
+```
+
+##Guardamos el dataset limpio y ordenado
+```{r Guardar}
+write.csv2(moviesfinal,file="./datos/tidymovies.csv",row.names = FALSE)
+```
